@@ -257,9 +257,10 @@ def new_save_video(video1_path, video2_path, scores, path):
 
         combined_frame = cv2.cvtColor(combined_frame, cv2.COLOR_BGR2RGB)
         combined_frame = np.array(combined_frame)
+        sentiment = "good" if score > 0.85 else "bad"
 
         from PIL import Image
-        output_filename = os.path.join("static/uploads/frames/", f"{i}_output.jpeg")
+        output_filename = os.path.join("static/uploads/frames/", f"{i}_output_{sentiment}.jpeg")
         im = Image.fromarray(combined_frame)
         im.save(output_filename)
         frames.append(combined_frame)
