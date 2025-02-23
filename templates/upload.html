@@ -3,14 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flask App</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
+    <title>Upload MP4 Files</title>
 </head>
-<body class="bg-gray-900 text-white min-h-screen flex flex-col items-center justify-center">
-    
-    <h1 class="text-3xl font-bold mb-4">Welcome to Flask</h1>
-    
-    <p class="text-lg">This is a basic Flask web page.</p>
+<body>
+    <h2>Upload Two MP4 Files</h2>
+    <form action="{{ url_for('upload') }}" method="post" enctype="multipart/form-data">
+        <label for="file1">Upload First MP4:</label>
+        <input type="file" name="file1" accept="video/mp4" required><br><br>
 
+        <label for="file2">Upload Second MP4:</label>
+        <input type="file" name="file2" accept="video/mp4" required><br><br>
+
+        <button type="submit">Upload</button>
+    </form>
+
+    {% if file1_url and file2_url %}
+        <h2>Uploaded Videos</h2>
+        <div>
+            <h3>Video 1</h3>
+            <video width="320" height="240" controls>
+                <source src="{{ file1_url }}" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+        </div>
+
+        <div>
+            <h3>Video 2</h3>
+            <video width="320" height="240" controls>
+                <source src="{{ file2_url }}" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+        </div>
+    {% endif %}
 </body>
 </html>

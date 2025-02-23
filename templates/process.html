@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Process Videos</title>
+</head>
+<body>
+    <h2>Uploaded Videos</h2>
+    <div style="display: flex; gap: 20px;">
+        <div>
+            <video width="320" controls>
+                <source src="{{ file1_url }}" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+        </div>
+        <div>
+            <video width="320" controls>
+                <source src="{{ file2_url }}" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+        </div>
+    </div>
+    <br>
+    <form action="{{ url_for('process_page') }}" method="post">
+        <!-- Hidden fields with file paths for processing -->
+        <input type="hidden" name="file1_path" value="{{ file1_path }}">
+        <input type="hidden" name="file2_path" value="{{ file2_path }}">
+        <button type="submit">Process Videos</button>
+    </form>
+</body>
+</html>
