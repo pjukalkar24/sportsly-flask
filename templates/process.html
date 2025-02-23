@@ -1,19 +1,196 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Process Videos</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Video Analysis</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: 'Open Sans', sans-serif;
+      background-color: #2e2e2e; /* Darker background for better contrast */
+      color: #ffffff;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100vh;
+      padding-top: 20px; /* Reduced top padding */
+      overflow: hidden; /* Prevent overflow from body */
+    }
+
+    .nav {
+      width: 100%;
+      background: #1b1b1b; /* Solid background for navigation */
+      padding: 15px;
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 10;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+    }
+
+    .nav a {
+      color: #ec4b36; /* Color for the title */
+      font-size: 24px;
+      font-weight: bold;
+      text-decoration: none;
+      margin-right: 20px; /* Space between links */
+    }
+
+    .video-container {
+      width: 90%;
+      max-width: 1400px;
+      margin-top: 60px; /* Space for the fixed navigation */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    video {
+      width: 100%;
+      border-radius: 12px;
+      border: none; /* Removed border for a cleaner look */
+      background: #000;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5); /* Subtle shadow */
+    }
+
+    .timeline-container {
+      width: 90%;
+      max-width: 1400px;
+      margin: 20px 0;
+      position: relative;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      height: 6px; /* Thinner track */
+      appearance: none;
+      background: #555; /* Softer track color */
+      border-radius: 5px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      background: #ec4b36; /* Consistent thumb color */
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 0 5px rgba(236, 75, 54, 0.5); /* Soft shadow */
+    }
+
+    .highlight {
+      position: absolute;
+      height: 6px; /* Consistent with slider */
+      background: rgba(236, 75, 54, 0.8); /* Semi-transparent highlight */
+      border-radius: 5px;
+    }
+
+    .analysis-container {
+      width: 90%;
+      max-width: 600px;
+      position: fixed;
+      bottom: 20px; /* Adjusted to avoid overlap with slider */
+      left: 50%;
+      transform: translateX(-50%);
+      background: #303033;
+      padding: 12px 16px;
+      border-radius: 10px;
+      border: 2px solid #ec4b36;
+      box-shadow: 0 4px 10px rgba(236, 75, 54, 0.2);
+      max-height: 250px;
+      overflow-y: auto;
+      font-size: 14px;
+      z-index: 5; /* Ensure it appears above other content */
+    }
+
+    .analysis-container h3 {
+      font-size: 16px;
+      color: #ec4b36;
+      margin-bottom: 8px;
+      border-bottom: 1px solid #ec4b36;
+      padding-bottom: 4px;
+    }
+
+    .analysis-text {
+      font-size: 12px;
+      line-height: 1.4;
+      color: #ddd;
+      white-space: pre-wrap;
+    }
+  </style>
 </head>
 <body>
-    <h2>Uploaded Videos</h2>
-    <div style="display: flex; gap: 20px;">
-        <div>
-            <video width="320" controls>
-                <source src="{{ output_path }}" type="video/mp4">
-                Your browser does not support the video tag.
-            </video>
+
+    <nav class="p-4 mb-6 w-full fixed top-0 left-0 right-0 z-10" style="background: linear-gradient(0.25turn, #111111, #6a2117);">
+        <div class="flex justify-between items-center w-full">
+          <a href="#" class="text-3xl font-bold" style="color: #ec4b36;">Flow<em>f</em>orm</a>
+          <ul class="flex space-x-6 mr-5">
+            <li><a href="{{ url_for('home') }}" class="hover:text-gray-400"><img src="https://uxwing.com/wp-content/themes/uxwing/download/web-app-development/home-page-white-icon.png" height="30px" width="30px"></a></li>
+          </ul>
         </div>
+    </nav>
+
+  <div class="video-container">
+    <video id="videoPlayer" controls>
+      <source src="{{ output_path }}" type="video/mp4">
+      Your browser does not support the video tag.
+    </video>
+  </div>
+
+  <div class="timeline-container">
+    <input type="range" id="timeline" min="0" value="0" step="0.1">
+    <div id="badFramesOverlay"></div>
+  </div>
+
+  <div class="analysis-container">
+    <h3>Video-Based Analysis</h3>
+    <div class="analysis-text" id="feedbackText">
+      {{ response_text | safe }}
     </div>
-    <br>
+  </div>
+
+  <script>
+    const video = document.getElementById("videoPlayer");
+    const timeline = document.getElementById("timeline");
+    const overlay = document.getElementById("badFramesOverlay");
+
+    video.addEventListener("loadedmetadata", () => {
+      timeline.max = video.duration;
+      highlightBadFrames();
+    });
+
+    video.addEventListener("timeupdate", () => {
+      timeline.value = video.currentTime;
+    });
+
+    timeline.addEventListener("input", () => {
+      video.currentTime = timeline.value;
+    });
+
+    function highlightBadFrames() {
+      const badSections = {{ bad_sections | tojson }};
+      overlay.innerHTML = "";
+
+      badSections.forEach(([start, end]) => {
+        const startTime = start / 20;
+        const endTime = end / 20;
+        const startPercentage = (startTime / video.duration) * 100;
+        const endPercentage = (endTime / video.duration) * 100;
+        const widthPercentage = endPercentage - startPercentage;
+
+        const highlight = document.createElement("div");
+        highlight.classList.add("highlight");
+        highlight.style.left = `${startPercentage}%`;
+        highlight.style.width = `${widthPercentage}%`;
+
+        overlay.appendChild(highlight);
+      });
+    }
+  </script>
+
 </body>
 </html>

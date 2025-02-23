@@ -59,8 +59,6 @@ categories = [
     Category("Badminton", "badminton.png", "https://www.youtube.com/embed/KDorKy-13ak?autoplay=1", basketball_classes,
                 [], '', ''),
     Category("Golf", "golf.png", "https://www.youtube.com/embed/KDorKy-13ak?autoplay=1", basketball_classes,
-                [], '', ''),
-    Category("Thraxxing", "dance.png", "https://www.youtube.com/embed/KDorKy-13ak?autoplay=1", basketball_classes,
                 [], '', '')
 ]
 

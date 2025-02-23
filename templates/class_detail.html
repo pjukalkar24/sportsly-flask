@@ -5,30 +5,14 @@
     <title>{{ fitness_class.title }}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        .video-container {
+        .box-container {
             border-radius: 20px;
             overflow: hidden;
-        }
-
-        .video-wrapper {
-            height: 580px; /* Set a fixed height for the video */
-        }
-
-        .class-title {
-            font-size: 2rem; /* Adjust title size */
-        }
-
-        .instructor-info {
-            color: #B0B0B0; /* Lighten instructor info color */
-        }
-
-        .back-link {
-            color: #3B82F6; /* Tailwind blue */
-            text-decoration: underline;
+            height: 650px;
         }
     </style>
 </head>
-<body class="text-white min-h-screen flex flex-col items-center justify-center p-10" style="background-color: #1c1c1c;">
+<body class="text-white min-h-screen flex flex-col items-center p-10" style="background-color: #1c1c1c;">
 
     <nav class="p-4 mb-6 w-full fixed top-0 left-0 right-0 z-10" style="background: linear-gradient(0.25turn, #111111, #6a2117);">
         <div class="flex justify-between items-center w-full">
@@ -37,23 +21,133 @@
             <li><a href="{{ url_for('home') }}" class="hover:text-gray-400"><img src="https://uxwing.com/wp-content/themes/uxwing/download/web-app-development/home-page-white-icon.png" height="30px" width="30px"></a></li>
           </ul>
         </div>
-      </nav>
+    </nav>
 
-    <div class="w-full max-w-4xl mt-20">
-        <div class="text-center mb-6">
-            <h1 class="class-title font-bold">{{ fitness_class.title }}</h1>
-            <p class="text-lg instructor-info">
-                <strong>Instructor:</strong> {{ fitness_class.instructor }} &nbsp; - &nbsp;
-                <strong>Duration:</strong> {{ fitness_class.duration }}
-            </p>
-        </div>
+    <h1 class="text-3xl font-bold text-center mt-24 mb-3" style="color: #ec4b36;">Practice {{ fitness_class.title }}</h1>
+    <p class="font-bold">Try your best to follow along with the instructor and mimic their movements, and take the video in good lighting for best results.</p>
 
-        <div class="video-container mb-6 shadow-lg">
-            <h2 class="text-2xl font-semibold text-center mb-4">Class Video</h2>
-            <div class="video-wrapper">
-                <video src="{{ url_for('static', filename=fitness_class.video) }}" controls class="h-full" style="border-radius: 20px;"></video>
+    <div class="w-full max-w-6xl mt-6 grid grid-cols-2 gap-6 items-center">
+        <!-- Right: Drag & Drop Upload -->
+        <div class="box-container p-6 rounded-xl shadow-lg text-center flex flex-col justify-center" id="upload-container">
+            <h2 class="text-2xl font-semibold mb-4">Upload a Reference Video</h2>
+            <div id="drop-area" class="border-2 border-dashed border-gray-500 p-10 rounded-lg cursor-pointer bg-gray-700 hover:bg-gray-600 flex items-center justify-center h-full">
+                <p class="text-gray-300 font-bold">Drag & Drop a file here or click to select a file</p>
+                <input type="file" id="fileElem" class="hidden" accept="video/*">
             </div>
         </div>
+
+        <div class="box-container p-6 rounded-xl shadow-lg text-center flex flex-col justify-center" id="upload-container-2">
+            <h2 class="text-2xl font-semibold mb-4">Upload Your Video</h2>
+            <div id="drop-area-2" class="border-2 border-dashed border-gray-500 p-10 rounded-lg cursor-pointer bg-gray-700 hover:bg-gray-600 flex items-center justify-center h-full">
+                <p class="text-gray-300 font-bold">Drag & Drop a file here or click to select a file</p>
+                <input type="file" id="fileElem2" class="hidden" accept="video/*">
+            </div>
+            <button id="submitBtn" style="background-color: #ec4b36;" class="mt-4 p-6 bg-blue-500 text-white text-xl font-bold rounded-lg hover:bg-blue-600">Submit Video</button>
+        </div>
     </div>
+
+    
+
+
+    <input type="hidden" id="fitnessClassVideo" value="{{ url_for('static', filename=fitness_class.video) }}">
+
+    <script>
+        const dropArea = document.getElementById('drop-area');
+        const fileInput = document.getElementById('fileElem');
+        const uploadContainer = document.getElementById('upload-container');
+
+        const dropArea2 = document.getElementById('drop-area-2');
+        const fileInput2 = document.getElementById('fileElem2');
+        const uploadContainer2 = document.getElementById('upload-container-2');
+
+        const submitBtn = document.getElementById('submitBtn');
+        const fitnessClassVideo = document.getElementById('fitnessClassVideo').value;
+        let uploadedFile = null;
+        let file2_vid = null;
+    
+        dropArea.addEventListener('click', () => fileInput.click());
+        dropArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropArea.classList.add('bg-gray-600');
+        });
+        dropArea.addEventListener('dragleave', () => dropArea.classList.remove('bg-gray-600'));
+        dropArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropArea.classList.remove('bg-gray-600');
+            const file = e.dataTransfer.files[0];
+            displayUploadedVideo(file);
+        });
+    
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            displayUploadedVideo(file);
+        });
+
+        dropArea2.addEventListener('click', () => fileInput2.click());
+        dropArea2.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropArea2.classList.add('bg-gray-600');
+        });
+        dropArea2.addEventListener('dragleave', () => dropArea2.classList.remove('bg-gray-600'));
+        dropArea2.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropArea2.classList.remove('bg-gray-600');
+            const file2 = e.dataTransfer.files[0];
+            displayUploadedVideo2(file2);
+        });
+    
+        fileInput2.addEventListener('change', (e) => {
+            const file2 = e.target.files[0];
+            displayUploadedVideo2(file2);
+        });
+    
+        function displayUploadedVideo(file) {
+            if (file && file.type.startsWith('video/')) {
+                const videoURL = URL.createObjectURL(file);
+                uploadedFile = file;
+                uploadContainer.innerHTML = `
+                    <h2 class="text-2xl font-semibold text-center mb-4">Upload a Reference Video</h2>
+                    <video controls class="w-full rounded-xl" style="height: 450px;">
+                        <source src="${videoURL}" type="${file.type}">
+                        Your browser does not support the video tag.
+                    </video>
+                `;
+            }
+        }
+
+        function displayUploadedVideo2(file2) {
+            if (file2 && file2.type.startsWith('video/')) {
+                const videoURL2 = URL.createObjectURL(file2);
+                uploadedFile2 = file2;
+                uploadContainer2.innerHTML = `
+                    <h2 class="text-2xl font-semibold text-center mb-4">Your Uploaded Video</h2>
+                    <video controls class="w-full rounded-xl" style="height: 450px;">
+                        <source src="${videoURL2}" type="${file2.type}">
+                        Your browser does not support the video tag.
+                    </video>
+                    <button id="submitBtn" style="background-color: #ec4b36;" class="mt-4 p-6 bg-blue-500 text-white text-xl font-bold rounded-lg hover:bg-blue-600">Submit Video</button>
+                `;
+                document.getElementById('submitBtn').addEventListener('click', uploadVideo);
+            }
+        }
+
+        function uploadVideo() {
+            console.log(fitnessClassVideo);
+            if (!uploadedFile) {
+                alert("Please upload a video first!");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file1', uploadedFile);  // User-uploaded video
+            formData.append('file2', uploadedFile2); // Original class video
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+        }
+    </script>
+    
 </body>
 </html>

@@ -100,16 +100,9 @@
     <div class="scroll-container">
       <div class="flex gap-4">
         {% for category in categories %}
-            {% if category.name == active_category.name %}
-                <div class="category-card p-5" data-category="{{ category.name }}" data-yt-url="{{ category.yt_url }}" onclick="setActiveCategory('{{ category.name }}')" style="border: 1px solid #ec4b36;">
+            <div class="category-card p-5" data-category="{{ category.name }}" data-yt-url="{{ category.yt_url }}" onclick="setActiveCategory('{{ category.name }}')" style="border: {% if category.name == active_category.name %} 1px solid #ec4b36 {% else %} none {% endif %};">
                 <img src="{{ url_for('static', filename=category.icon) }}" alt="{{ category.name }}" class="category-image">
-                <div class="text-sm" style="color: #ec4b36;">{{ category.name }}</div>
-            {% else %}
-                <div class="category-card p-5" data-category="{{ category.name }}" data-yt-url="{{ category.yt_url }}" onclick="setActiveCategory('{{ category.name }}')" style="border: none">
-                <img src="{{ url_for('static', filename=category.icon) }}" alt="{{ category.name }}" class="category-image">
-                <div class="text-sm">{{ category.name }}</div>
-            {% endif %}
-                
+                <div class="text-sm" style="color: {% if category.name == active_category.name %} #ec4b36 {% endif %};">{{ category.name }}</div>
             </div>
         {% endfor %}
       </div>
@@ -122,14 +115,13 @@
         {% else %}
           <iframe width="100%" height="580" src="{{ active_category.yt_url }}" title="YouTube video player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" style="border-radius: 20px;" allowfullscreen></iframe>
         {% endif %}
-        </div>
+      </div>
 
       <div class="classes-list-container">
         {% for category in categories %}
-          <!-- <div class="classes-container" data-category="{{ category.name }}" style="display: {% if category.name == active_category %}block{% else %}none{% endif %};"> -->
             {% if category.name == active_category.name %}
                 <div class="classes-container" data-category="{{ category.name }}" style="display: block;">
-                    <h1 class="text-2xl mb-5">Browse classes</h1>
+                    <h1 class="text-2xl font-bold mb-5">Browse classes</h1>
                     {% for fitness_class in category.classes %}
                     <a href="{{ url_for('class_detail', class_id=fitness_class.id) }}" class="class-card">
                         <img src="{{ url_for('static', filename=fitness_class.image) }}" alt="{{ fitness_class.title }}" class="rounded-md w-20 h-20 object-cover">

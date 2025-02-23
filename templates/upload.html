@@ -3,36 +3,62 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Upload MP4 Files</title>
+    <title>Upload Video Files</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #1c1c1c;
+            color: white;
+        }
+    </style>
 </head>
-<body>
-    <h2>Upload Two MP4 Files</h2>
-    <form action="{{ url_for('upload') }}" method="post" enctype="multipart/form-data">
-        <label for="file1">Upload First MP4:</label>
-        <input type="file" name="file1" accept="video" required><br><br>
+<body class="flex flex-col items-center justify-center min-h-screen p-4">
 
-        <label for="file2">Upload Second MP4:</label>
-        <input type="file" name="file2" accept="video" required><br><br>
+    <nav class="w-full fixed top-0 left-0 right-0 z-10 p-4" style="background: linear-gradient(0.25turn, #111111, #6a2117);">
+        <div class="flex justify-between items-center">
+            <a href="#" class="text-3xl font-bold" style="color: #ec4b36;">Flow<em>f</em>orm</a>
+            <ul class="flex space-x-6 mr-5">
+                <li><a href="{{ url_for('home') }}" class="hover:text-gray-400"><img src="https://uxwing.com/wp-content/themes/uxwing/download/web-app-development/home-page-white-icon.png" height="30px" width="30px"></a></li>
+                <li><a href="{{ url_for('upload') }}" class="hover:text-gray-400">Upload</a></li>
+            </ul>
+        </div>
+    </nav>
 
-        <button type="submit">Upload</button>
-    </form>
+    <div class="mt-16 w-full max-w-md">
+        <h2 class="text-3xl font-bold text-center mb-6">Upload Two Video Files</h2>
+        <form action="{{ url_for('upload') }}" method="post" enctype="multipart/form-data" class="bg-gray-800 p-6 rounded-lg shadow-md">
+            <div class="mb-4">
+                <label for="file1" class="block text-sm mb-2">Upload First Video:</label>
+                <input type="file" name="file1" accept=".mp4, .mov" required class="w-full p-2 rounded bg-gray-700 border border-gray-600">
+            </div>
+
+            <div class="mb-4">
+                <label for="file2" class="block text-sm mb-2">Upload Second Video:</label>
+                <input type="file" name="file2" accept=".mp4, .mov" required class="w-full p-2 rounded bg-gray-700 border border-gray-600">
+            </div>
+
+            <button type="submit" class="w-full bg-ec4b36 hover:bg-ec4b40 text-white font-bold py-2 rounded transition duration-200">Upload</button>
+        </form>
+    </div>
 
     {% if file1_url and file2_url %}
-        <h2>Uploaded Videos</h2>
-        <div>
-            <h3>Video 1</h3>
-            <video width="320" height="240" controls>
-                <source src="{{ file1_url }}" type="video/mp4">
-                Your browser does not support the video tag.
-            </video>
-        </div>
+        <div class="mt-8 w-full max-w-md">
+            <h2 class="text-2xl font-bold text-center mb-4">Uploaded Videos</h2>
+            <div class="mb-4">
+                <h3 class="font-medium">Video 1</h3>
+                <video class="w-full rounded-lg" controls>
+                    <source src="{{ file1_url }}" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            </div>
 
-        <div>
-            <h3>Video 2</h3>
-            <video width="320" height="240" controls>
-                <source src="{{ file2_url }}" type="video/mp4">
-                Your browser does not support the video tag.
-            </video>
+            <div>
+                <h3 class="font-medium">Video 2</h3>
+                <video class="w-full rounded-lg" controls>
+                    <source src="{{ file2_url }}" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            </div>
         </div>
     {% endif %}
 </body>
