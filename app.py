@@ -10,33 +10,67 @@ UPLOAD_FOLDER = os.path.join('static', 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 football_classes = [
-    FitnessClass(1, "Throwing a Football", "John Doe", "1 hour", "football-icon.png", "Football.mov"),
-    FitnessClass(2, "Snapping a football", "Doe Doe", "2 hour", "football-icon.png", "Football_snap.mov"),
+    FitnessClass(1, "Throwing a Football", "Adithya Rajesh", "45 mins", "football-icon.png", "Football.mov"),
+    FitnessClass(2, "Snapping a Football", "Adithya Rajesh", "1 hour", "football-icon.png", "Football_snap.mov"),
+    FitnessClass(2, "Running Routes", "Eshan Jaffar", "1.5 hours", "football-icon.png", "Football_snap.mov"),
+    FitnessClass(2, "Evading Defenders", "Pranav Eega", "2 hours", "football-icon.png", "Football_snap.mov"),
+    FitnessClass(2, "Tackling Safely", "Preetam Jukalkar", "20 minutes", "football-icon.png", "Football_snap.mov"),
 ]
 
 baseball_classes = [
-    FitnessClass(3, "Squat", "John Doe", "1 hour", "football-icon.png", "Squat.MOV"),
-    FitnessClass(4, "Bicep Curl", "Doe Doe", "2 hour", "football-icon.png", "Bicep_curl.mov"),
-    FitnessClass(5, "Jumping Jacks", "John John", "3 hour", "football-icon.png", "Jumping_Jacks.mov")
+    FitnessClass(3, "Squat", "Pranav Eega", "15 mins", "gym.png", "Squat.MOV"),
+    FitnessClass(4, "Bicep Curl", "Adithya Rajesh", "30 mins", "gym.png", "Bicep_curl.mov"),
+    FitnessClass(5, "Jumping Jacks", "Adithya Rajesh", "30 mins", "gym.png", "Jumping_Jacks.mov"),
+    FitnessClass(5, "Bench Press", "Eshan Jaffar", "45 mins", "gym.png", "Jumping_Jacks.mov"),
+    FitnessClass(5, "Cardio", "Preetam Jukalkar", "1 hr", "gym.png", "Jumping_Jacks.mov"),
+    FitnessClass(5, "Push Ups", "Pranav Eega", "15 mins", "gym.png", "Jumping_Jacks.mov")
 ]
 
 basketball_classes = [
-    FitnessClass(6, "Chicken Dance", "John Doe", "1 hour", "football-icon.png", "chicken_dance.mov"),
-    FitnessClass(7, "Sprinkler", "Doe Doe", "2 hour", "football-icon.png", "Sprinkler.MOV"),
-    FitnessClass(8, "Wave", "John John", "3 hour", "football-icon.png", "Wave.mov")
+    FitnessClass(6, "Chicken Dance", "Adithya Rajesh", "30 mins", "dance.png", "chicken_dance.mov"),
+    FitnessClass(9, "Sticky", "Tyler, the Creator", "1 hr", "dance.png", "Sticky.MOV"),
+    FitnessClass(7, "Sprinkler", "Adithya Rajesh", "15 mins", "dance.png", "Sprinkler.MOV"),
+    FitnessClass(8, "Wave", "Adithya Rajesh", "10 mins", "dance.png", "Wave.mov")
 ]
 
 categories = [
-    Category("Football", "football-icon.png", "https://www.youtube.com/embed/kNoy1tOY_Kw", football_classes),
-    Category("Gym", "pngtree-gym-facility-for-the-customers-at-five-star-hotels-png-image_4704890.png", "https://www.youtube.com/embed/B4kNiCWTl7", baseball_classes),
-    Category("Dance", "10580.png", "https://www.youtube.com/embed/ntS0hequ388?si=qxta1i2n1CbRFIPO", basketball_classes)
+    Category("Upload", "upload.png", "https://www.youtube.com/embed/kNoy1tOY_Kw?autoplay=1", football_classes,
+                [], '', ''),
+    Category("Football", "football.png", "https://www.youtube.com/embed/kNoy1tOY_Kw?autoplay=1", football_classes,
+                [], '', ''),
+    Category("Gym", "gym.png", "https://www.youtube.com/embed/b1H3xO3x_Js?autoplay=1", baseball_classes,
+                [], '', ''),
+    Category("Dance", "dance.png", "Sticky.MOV", basketball_classes,
+                [], '', ''),
+    Category("Baseball", "baseball.png", "https://www.youtube.com/embed/KDorKy-13ak?autoplay=1", basketball_classes,
+                [], '', ''),
+    Category("Basketball", "basketball.png", "https://www.youtube.com/embed/KDorKy-13ak?autoplay=1", basketball_classes,
+                [], '', ''),
+    Category("Tennis", "tennis.png", "https://www.youtube.com/embed/KDorKy-13ak?autoplay=1", basketball_classes,
+                [], '', ''),
+    Category("Soccer", "soccer.png", "https://www.youtube.com/embed/KDorKy-13ak?autoplay=1", basketball_classes,
+                [], '', ''),
+    Category("Cricket", "cricket.png", "https://www.youtube.com/embed/KDorKy-13ak?autoplay=1", basketball_classes,
+                [], '', ''),
+    Category("Hockey", "hockey.png", "https://www.youtube.com/embed/KDorKy-13ak?autoplay=1", basketball_classes,
+                [], '', ''),
+    Category("Badminton", "badminton.png", "https://www.youtube.com/embed/KDorKy-13ak?autoplay=1", basketball_classes,
+                [], '', ''),
+    Category("Golf", "golf.png", "https://www.youtube.com/embed/KDorKy-13ak?autoplay=1", basketball_classes,
+                [], '', ''),
+    Category("Thraxxing", "dance.png", "https://www.youtube.com/embed/KDorKy-13ak?autoplay=1", basketball_classes,
+                [], '', '')
 ]
 
 @app.route('/')
+def index():
+    return render_template('index.html', categories=categories)
+
+@app.route('/classes')
 def home():
     active_category_name = session.get('active_category', categories[0].name)
     active_category = next((c for c in categories if c.name == active_category_name), categories[0])
-    return render_template('index.html', categories=categories, active_category=active_category)
+    return render_template('classes.html', categories=categories, active_category=active_category)
 
 @app.route('/set_active_category', methods=['POST'])
 def set_active_category():
