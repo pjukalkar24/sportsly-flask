@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ fitness_class.title }}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
+</head>
+<body class="bg-gray-900 text-white min-h-screen flex flex-col items-center justify-center p-10">
+
+    <h1 class="text-4xl font-bold mb-6">{{ fitness_class.title }}</h1>
+    <img src="{{ url_for('static', filename=fitness_class.image) }}" alt="{{ fitness_class.title }}" class="w-64 h-64 object-cover rounded-lg mb-4">
+    <video src="{{ url_for('static', filename=fitness_class.video) }}" controls class="w-full mb-4"></video>
+    <p class="text-lg mb-2"><strong>Instructor:</strong> {{ fitness_class.instructor }}</p>
+    <p class="text-lg mb-2"><strong>Duration:</strong> {{ fitness_class.duration }}</p>
+    <p class="text-lg max-w-xl text-center">{{ fitness_class.description }}</p>
+
+    <a href="{{ url_for('home') }}" class="mt-6 text-blue-400 hover:underline">Back to Classes</a>
+
+</body>
+</html>
