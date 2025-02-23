@@ -1,5 +1,6 @@
 class FitnessClass:
-    def __init__(self, title, instructor, duration, image, video):
+    def __init__(self, id, title, instructor, duration, image, video):
+        self.id = id
         self.title = title
         self.instructor = instructor
         self.duration = duration

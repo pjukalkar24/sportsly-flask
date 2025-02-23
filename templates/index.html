@@ -123,7 +123,7 @@
                 <div class="classes-container" data-category="{{ category.name }}" style="display: block;">
                     <h1 class="text-2xl mb-5">Browse classes</h1>
                     {% for fitness_class in category.classes %}
-                    <a href="#" class="class-card">
+                    <a href="{{ url_for('class_detail', class_id=fitness_class.id) }}" class="class-card">
                         <img src="{{ url_for('static', filename=fitness_class.image) }}" alt="{{ fitness_class.title }}" class="rounded-md w-20 h-20 object-cover">
                         <div class="flex flex-col">
                         <p class="font-medium">{{ fitness_class.title }}</p>
