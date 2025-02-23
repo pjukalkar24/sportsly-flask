@@ -9,10 +9,10 @@
     <h2>Upload Two MP4 Files</h2>
     <form action="{{ url_for('upload') }}" method="post" enctype="multipart/form-data">
         <label for="file1">Upload First MP4:</label>
-        <input type="file" name="file1" accept="video/mp4" required><br><br>
+        <input type="file" name="file1" accept="video" required><br><br>
 
         <label for="file2">Upload Second MP4:</label>
-        <input type="file" name="file2" accept="video/mp4" required><br><br>
+        <input type="file" name="file2" accept="video" required><br><br>
 
         <button type="submit">Upload</button>
     </form>

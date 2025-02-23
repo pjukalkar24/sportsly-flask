@@ -1,9 +1,10 @@
 import time
-
+import os
 import cv2
 import dtw
 import numpy as np
 import mediapipe as mp
+from moviepy.editor import ImageSequenceClip
 from sklearn.metrics.pairwise import cosine_similarity
 
 
@@ -126,7 +127,7 @@ def run(video_path=None, last_time=None, end_time=None):
                 frame_kpts = [[-1, -1]] * len(pose_keypoints)  # fill data with [-1,-1] if no person is present
 
             kpts.append(frame_kpts)  # add this frame to collection of all frames
-            cv2.imshow('Pose Landmarks', frame)  # display output frame
+            # cv2.imshow('Pose Landmarks', frame)  # display output frame
 
     cv2.destroyAllWindows()
     cap.release()
@@ -192,6 +193,40 @@ def find_low_score_segments(scores, threshold=0.85, min_length=20, fps=20):
 
     return segments
 
+def new_save_video(video1_path, video2_path, scores, path):
+    video1 = cv2.VideoCapture(video1_path)
+    video2 = cv2.VideoCapture(video2_path)
+    output_filename = os.path.join("static/uploads", "output.mp4")
+    frames = []
+
+    for i in range(len(scores)):
+        score = scores[i]
+        video1.set(cv2.CAP_PROP_POS_FRAMES, path[0][i])
+        video2.set(cv2.CAP_PROP_POS_FRAMES, path[1][i])
+
+        ret1, frame1 = video1.read()
+        ret2, frame2 = video2.read()
+        if not ret1 or not ret2:
+            print("Error reading frame")
+            break
+        combined_frame = np.hstack((frame1, frame2))
+        if (score > 0.85):
+            cv2.putText(combined_frame, f"Score: {score:.2f}", (50, 50),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+        else:
+            cv2.putText(combined_frame, f"Score: {score:.2f}", (50, 50),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+
+        combined_frame = cv2.cvtColor(combined_frame, cv2.COLOR_BGR2RGB)
+        combined_frame = np.array(combined_frame)
+        frames.append(combined_frame)
+
+    clip = ImageSequenceClip(frames, fps=20)
+    clip.write_videofile(output_filename)
+
+    video1.release()
+    video2.release()
+    cv2.destroyAllWindows()
 
 def save_overlay_video(video1_path, video2_path, scores, path):
     video1 = cv2.VideoCapture(video1_path)
@@ -200,7 +235,7 @@ def save_overlay_video(video1_path, video2_path, scores, path):
     frame_count = len(scores)
     frame_width = int(video1.get(3))
     frame_height = int(video1.get(4))
-    output_filename = "output.mp4"
+    output_filename = os.path.join("static/uploads", "output.mp4")
     fourcc = cv2.VideoWriter_fourcc(*'XVID')
     fps = 20
     out = cv2.VideoWriter(output_filename, fourcc, fps, (frame_width * 2, frame_height))
@@ -224,7 +259,6 @@ def save_overlay_video(video1_path, video2_path, scores, path):
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
         out.write(combined_frame)
-        cv2.imshow("Frame", combined_frame)
 
     video1.release()
     video2.release()
@@ -295,7 +329,8 @@ def process(videopath_1, videopath_2):
     video_2_processed = similarity_preprocesser(aligned_frames2)
     frame_scores = np.diag(cosine_similarity(video_1_processed, video_2_processed))
     scores = normalize_values(frame_scores / np.max(frame_scores))
-    save_overlay_video(videopath_1, videopath_2, scores, path)
+    new_save_video(videopath_1, videopath_2, scores, path)
+    # save_overlay_video(videopath_1, videopath_2, scores, path)
 '''low_score_segments = find_low_score_segments(scores)
     save_video_segments(videopath_1, low_score_segments, path)
     save_video_segments(videopath_2, low_score_segments, path)'''

@@ -1,9 +1,13 @@
-from flask import Flask, render_template, request, jsonify, session
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for
+import os
 from Category import Category
 from FitnessClass import FitnessClass
+from model import process
 
 app = Flask(__name__)
 app.secret_key = "its_the_football_guys"
+UPLOAD_FOLDER = os.path.join('static', 'uploads')
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 football_classes = [
     FitnessClass(1, "Throwing a Football", "John Doe", "1 hour", "football-icon.png", "Football.mov"),
@@ -48,9 +52,34 @@ def class_detail(class_id):
                 return render_template('class_detail.html', fitness_class=fitness_class)
     return "Class not found", 404
 
-@app.route('/upload')
+@app.route('/upload', methods=['GET', 'POST'])
 def upload():
+    if request.method == 'POST':
+        file1 = request.files['file1']
+        file2 = request.files['file2']
+
+        if file1 and file2:
+            file1.save(os.path.join(UPLOAD_FOLDER, file1.filename))
+            file2.save(os.path.join(UPLOAD_FOLDER, file2.filename))
+            session['file1'] = os.path.join(UPLOAD_FOLDER, file1.filename)
+            session['file2'] = os.path.join(UPLOAD_FOLDER, file2.filename)
+            return redirect(url_for("process_page"))
+        else:
+            return 'Missing files!', 400
     return render_template('upload.html')
+
+def process_videos():
+    file1_path = session['file1']
+    file2_path = session['file2']
+    process(file1_path, file2_path)
+    print("Videos processed successfully!")
+    return
+
+@app.route('/process')
+def process_page():
+    process_videos()
+    output_path = os.path.join("static", "uploads", "output.mp4")
+    return render_template('process.html', output_path=output_path)
 
 if __name__ == '__main__':
     app.run(debug=True)
