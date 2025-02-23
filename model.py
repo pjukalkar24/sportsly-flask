@@ -7,6 +7,7 @@ import mediapipe as mp
 from scipy.spatial.distance import cdist
 from moviepy.editor import ImageSequenceClip
 from sklearn.metrics.pairwise import cosine_similarity
+import re
 
 
 def calculate_angle(a, b, c):
@@ -327,6 +328,212 @@ def save_video_segments(video_path, low_score_segments, dtw_path, fps=20):
     cap.release()
     cv2.destroyAllWindows()
 
+
+import google.generativeai as genai1
+from dotenv import load_dotenv
+load_dotenv()
+import os
+from google.ai.generativelanguage_v1beta.types import content
+from google import genai
+import json
+
+gemini_api_key = os.getenv('GEMINI_API_KEY')
+
+
+def wait_for_files_active(files, max_retries=10, initial_delay=5):
+    """Waits for the given files to be active using exponential backoff.
+
+    This avoids constant polling by gradually increasing the delay between retries.
+    """
+    print("Waiting for file processing...")
+    for file in files:
+        retries = 0
+        delay = initial_delay
+        while retries < max_retries:
+            file_state = genai1.get_file(file.name).state.name
+            if file_state == "ACTIVE":
+                print(f"File {file.name} is now active.")
+                break
+            elif file_state != "PROCESSING":
+                raise Exception(f"File {file.name} failed to process with state: {file_state}")
+
+            print(f"File {file.name} still processing. Retrying in {delay} seconds...")
+            time.sleep(delay)
+            retries += 1
+            delay *= 2  # Exponential backoff
+
+        if retries == max_retries:
+            raise TimeoutError(f"File {file.name} failed to become active after {max_retries} retries.")
+
+    print("All files are active.")
+
+
+def find_low_score_segments(scores, threshold=0.85, min_length=20, fps=20):
+    segments = []
+    start_index = None
+    count = 0
+
+    for i in range(len(scores)):
+        if scores[i] < threshold:
+            if start_index is None:  # Start of a new segment
+                start_index = i
+            count += 1
+        else:
+            if start_index is not None:  # End of a segment
+                if count >= min_length:
+                    segments.append((start_index / fps, (i - 1) / fps))
+                start_index = None
+                count = 0
+
+    # Check if the last segment ends before the end of the array
+    if start_index is not None and count >= min_length:
+        segments.append((start_index / fps, (len(scores) - 1) / fps))
+    return segments
+
+
+def generate_feedback_with_frames(similarity_matrix, body_parts, num_low_frames=3):
+    feedback = []
+
+    for i, part in enumerate(body_parts):
+        body_part_scores = similarity_matrix[:, i]
+        low_frames = np.argsort(body_part_scores)[:num_low_frames].tolist()
+        timestamps = frames_to_timestamp(low_frames) if low_frames else ["N/A"]
+        avg_score = round(float(np.mean(body_part_scores)), 2)
+
+        if avg_score > 0.85:
+            comment = "Great alignment!"
+        elif avg_score > 0.7:
+            comment = "Good, but slight adjustments needed."
+        else:
+            comment = "Needs improvement in movement or positioning."
+
+        feedback.append({
+            "body_part": part,
+            "low_similarity_frames": low_frames,
+            "timestamp": timestamps[0] if low_frames else "N/A",
+            "average_similarity_score": avg_score,
+            "feedback": comment,
+            "summary": f"{part.replace('_', ' ').title()}: {comment}"
+        })
+
+    return feedback
+
+
+def upload_to_gemini(path, mime_type=None):
+    file = genai1.upload_file(path, mime_type=mime_type)
+    print(f"Uploaded file '{file.display_name}' as: {file.uri}")
+    return file
+
+
+def frames_to_timestamp(frame_indices, fps=30):
+    """Convert frame indices to hh:mm:ss:ms timestamps."""
+    timestamps = []
+    for frame in frame_indices:
+        total_seconds = frame / fps
+        minutes, seconds = divmod(total_seconds, 60)
+        hours, minutes = divmod(minutes, 60)
+        milliseconds = int((total_seconds - int(total_seconds)) * 1000)
+        timestamps.append(f"{int(hours):02d}:{int(minutes):02d}:{int(seconds):02d}:{milliseconds:03d}")
+    return timestamps
+
+def detect_bad_frame_sections(frames_folder):
+    """
+    Scan a directory for bad frames and detect sections with 8+ consecutive bad frames.
+
+    :param frames_folder: Path to the folder containing frames
+    :return: JSON object with bad frame sections
+    """
+    frame_pattern = re.compile(r"(\d+)_output_bad\.jpeg")
+    frames = []
+
+    # Scan directory and extract bad frames
+    for filename in sorted(os.listdir(frames_folder), key=lambda x: int(re.search(r"(\d+)", x).group())):
+        match = frame_pattern.match(filename)
+        if match:
+            frame_num = int(match.group(1))
+            frames.append(frame_num)
+
+    # Identify consecutive bad frame sections
+    bad_sections = []
+    current_section = []
+
+    for i in range(len(frames)):
+        if i == 0 or frames[i] == frames[i - 1] + 1:
+            current_section.append(frames[i])
+        else:
+            if len(current_section) >= 20:  # Change the condition to >= 8
+                bad_sections.append((current_section[0], current_section[-1]))
+            current_section = [frames[i]]
+
+    # Add last section if it qualifies
+    if len(current_section) >= 20:  # Change the condition to >= 8
+        bad_sections.append((current_section[0], current_section[-1]))
+
+    return {"bad_sections": bad_sections}
+
+
+def generate_feedback(user_video_name, ref_video_name, low_score_segments, gemini_api_key):
+    frames_folder = os.path.join("static", "uploads", "frames")
+    bad_frames_data = detect_bad_frame_sections(frames_folder)
+    generation_config = {
+        "temperature": 0.7,
+        "top_p": 0.8,
+        "top_k": 40,
+        "max_output_tokens": 8192,
+    }
+
+    model = genai1.GenerativeModel(model_name="gemini-1.5-flash", generation_config=generation_config)
+
+    segments_info = [
+        {"start_time": round(segment[0], 3), "end_time": round(segment[1], 3)} for segment in low_score_segments
+    ]
+
+    prompt = f"""You are analyzing movement differences between a reference video and an attempt to replicate it. Focus ONLY on the most obvious, major differences in movement.
+
+    Context:
+    - Reference Video: {ref_video_name}
+    - Performer Video: {user_video_name}
+    - Bad Frames: {json.dumps(bad_frames_data)}
+
+    For each segment with low similarity:
+    1. List only the 2-3 biggest differences in body position or movement
+    2. Provide a brief, direct suggestion for improvement (50 - 100 words)
+
+    Focus on:
+    - Major differences in body positions
+    - Obviously incorrect movements
+    - Clear deviations in form
+
+    Keep your analysis extremely simple and direct. Don't explain the biomechanics or impact - just point out what's different and how to fix it.
+    example format, keep it the same as this format
+    Avoid:
+    - Minor details
+    - Technical terminology
+    - Long explanations
+    - Multiple suggestions
+    """
+
+    client = genai.Client(api_key=gemini_api_key)
+
+    files = [
+        upload_to_gemini(user_video_name, mime_type="video/mp4"),
+        upload_to_gemini(ref_video_name, mime_type="video/mp4"),
+    ]
+    wait_for_files_active(files)
+
+    response = model.generate_content([
+        prompt,
+        files[0],
+        files[1]
+    ])
+    print(response.text)
+    return response.text
+
+
+import re
+import json
+
+
 def process(videopath_1, videopath_2):
     kpts_vid1 = run(video_path=videopath_1)
     kpts_vid2 = run(video_path=videopath_2)
@@ -336,7 +543,8 @@ def process(videopath_1, videopath_2):
     frame_scores = np.diag(cosine_similarity(video_1_processed, video_2_processed))
     scores = normalize_values(frame_scores / np.max(frame_scores))
     new_save_video(videopath_1, videopath_2, scores, path)
-    # save_overlay_video(videopath_1, videopath_2, scores, path)
-'''low_score_segments = find_low_score_segments(scores)
-    save_video_segments(videopath_1, low_score_segments, path)
-    save_video_segments(videopath_2, low_score_segments, path)'''
+    #save_overlay_video(videopath_1, videopath_2, scores, path)
+    low_score_segments = find_low_score_segments(scores)
+    #parse_feedback(chichi)
+    #save_video_segments(videopath_1, low_score_segments, path)
+    #save_video_segments(videopath_2, low_score_segments, path)

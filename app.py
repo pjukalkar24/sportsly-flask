@@ -1,8 +1,10 @@
+import re
+import time
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 import os
 from Category import Category
 from FitnessClass import FitnessClass
-from model import process
+from model import process, generate_feedback
 
 app = Flask(__name__)
 app.secret_key = "its_the_football_guys"
@@ -10,7 +12,7 @@ UPLOAD_FOLDER = os.path.join('static', 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 football_classes = [
-    FitnessClass(1, "Throwing a Football", "Adithya Rajesh", "45 mins", "football-icon.png", "Football.mov"),
+    FitnessClass(1, "Throwing a Football", "Adithya Rajesh", "45 mins", "football-icon.png", "uploads/test2.mov"),
     FitnessClass(2, "Snapping a Football", "Adithya Rajesh", "1 hour", "football-icon.png", "Football_snap.mov"),
     FitnessClass(2, "Running Routes", "Eshan Jaffar", "1.5 hours", "football-icon.png", "Football_snap.mov"),
     FitnessClass(2, "Evading Defenders", "Pranav Eega", "2 hours", "football-icon.png", "Football_snap.mov"),
@@ -18,7 +20,7 @@ football_classes = [
 ]
 
 baseball_classes = [
-    FitnessClass(3, "Squat", "Pranav Eega", "15 mins", "gym.png", "Squat.MOV"),
+    FitnessClass(3, "Squat", "Pranav Eega", "15 mins", "gym.png", "Squat.mov"),
     FitnessClass(4, "Bicep Curl", "Adithya Rajesh", "30 mins", "gym.png", "Bicep_curl.mov"),
     FitnessClass(5, "Jumping Jacks", "Adithya Rajesh", "30 mins", "gym.png", "Jumping_Jacks.mov"),
     FitnessClass(5, "Bench Press", "Eshan Jaffar", "45 mins", "gym.png", "Jumping_Jacks.mov"),
@@ -91,6 +93,7 @@ def upload():
     if request.method == 'POST':
         file1 = request.files['file1']
         file2 = request.files['file2']
+        print(file1, file2)
 
         if file1 and file2:
             file1.save(os.path.join(UPLOAD_FOLDER, file1.filename))
@@ -105,15 +108,74 @@ def upload():
 def process_videos():
     file1_path = session['file1']
     file2_path = session['file2']
+    print(file1_path, file2_path)
     process(file1_path, file2_path)
+
+    frames_folder = os.path.join("static", "uploads", "frames")
+
+    # Detect bad frames
+    bad_frames_data = detect_bad_frame_sections(frames_folder)
+    low_score_segments = bad_frames_data.get("bad_sections", [])
+
+    # Your Gemini API Key (replace with your actual key or load from environment variables)
+    gemini_api_key = os.getenv("GEMINI_API_KEY")
+
+    # Generate feedback using the provided function
+    feedback_text = generate_feedback(
+        user_video_name=file1_path,
+        ref_video_name=file2_path,
+        low_score_segments=low_score_segments,
+        gemini_api_key=gemini_api_key
+    )
+
     print("Videos processed successfully!")
-    return
+    return feedback_text
 
 @app.route('/process')
 def process_page():
-    process_videos()
+    frames_folder = os.path.join("static", "uploads", "frames")  # Adjust path as needed
+    bad_frames_data = detect_bad_frame_sections(frames_folder)  # Detect bad frame sections
+
     output_path = os.path.join("static", "uploads", "output.mp4")
-    return render_template('process.html', output_path=output_path)
+
+    feedback_text = process_videos()
+
+    return render_template('process.html', output_path=output_path, bad_sections=bad_frames_data["bad_sections"], response_text = feedback_text)
+
+def detect_bad_frame_sections(frames_folder):
+    """
+    Scan a directory for bad frames and detect sections with 8+ consecutive bad frames.
+
+    :param frames_folder: Path to the folder containing frames
+    :return: JSON object with bad frame sections
+    """
+    frame_pattern = re.compile(r"(\d+)_output_bad\.jpeg")
+    frames = []
+
+    # Scan directory and extract bad frames
+    for filename in sorted(os.listdir(frames_folder), key=lambda x: int(re.search(r"(\d+)", x).group())):
+        match = frame_pattern.match(filename)
+        if match:
+            frame_num = int(match.group(1))
+            frames.append(frame_num)
+
+    # Identify consecutive bad frame sections
+    bad_sections = []
+    current_section = []
+
+    for i in range(len(frames)):
+        if i == 0 or frames[i] == frames[i - 1] + 1:
+            current_section.append(frames[i])
+        else:
+            if len(current_section) >= 20:  # Change the condition to >= 8
+                bad_sections.append((current_section[0], current_section[-1]))
+            current_section = [frames[i]]
+
+    # Add last section if it qualifies
+    if len(current_section) >= 20:  # Change the condition to >= 8
+        bad_sections.append((current_section[0], current_section[-1]))
+
+    return {"bad_sections": bad_sections}
 
 if __name__ == '__main__':
     app.run(debug=True)
