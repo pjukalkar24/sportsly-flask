@@ -1,9 +1,10 @@
 import time
 import os
 import cv2
-import dtw
+# import dtw
 import numpy as np
 import mediapipe as mp
+from scipy.spatial.distance import cdist
 from moviepy.editor import ImageSequenceClip
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -20,7 +21,6 @@ def calculate_angle(a, b, c):
         angle = 360 - angle
 
     return angle
-
 
 def run(video_path=None, last_time=None, end_time=None):
     # initialize and select which points to analyze
@@ -133,7 +133,6 @@ def run(video_path=None, last_time=None, end_time=None):
     cap.release()
     return kpts
 
-
 def preprocess_data(video_data):
     processed_data = []
     for frame in video_data:
@@ -141,15 +140,56 @@ def preprocess_data(video_data):
             processed_data.append(np.array(frame['kpts']).flatten())
     return np.array(processed_data)
 
+def accelerated_dtw(x, y, dist, warp=1):
+    if np.ndim(x) == 1:
+        x = x.reshape(-1, 1)
+    if np.ndim(y) == 1:
+        y = y.reshape(-1, 1)
+    r, c = len(x), len(y)
+    D0 = np.zeros((r + 1, c + 1))
+    D0[0, 1:] = np.inf
+    D0[1:, 0] = np.inf
+    D1 = D0[1:, 1:]
+    D0[1:, 1:] = cdist(x, y, dist)
+    C = D1.copy()
+    for i in range(r):
+        for j in range(c):
+            min_list = [D0[i, j]]
+            for k in range(1, warp + 1):
+                min_list += [D0[min(i + k, r), j],
+                             D0[i, min(j + k, c)]]
+            D1[i, j] += min(min_list)
+    if len(x) == 1:
+        path = np.zeros(len(y)), range(len(y))
+    elif len(y) == 1:
+        path = range(len(x)), np.zeros(len(x))
+    else:
+        path = _traceback(D0)
+    return D1[-1, -1], C, D1, path
+
+def _traceback(D):
+    i, j = np.array(D.shape) - 2
+    p, q = [i], [j]
+    while (i > 0) or (j > 0):
+        tb = np.argmin((D[i, j], D[i, j + 1], D[i + 1, j]))
+        if tb == 0:
+            i -= 1
+            j -= 1
+        elif tb == 1:
+            i -= 1
+        else:  # (tb == 2):
+            j -= 1
+        p.insert(0, i)
+        q.insert(0, j)
+    return np.array(p), np.array(q)
 
 def align_videos(video1, video2):
     video1_kpts = preprocess_data(video1)
     video2_kpts = preprocess_data(video2)
-    dist, cost, acc_cost, path = dtw.accelerated_dtw(video1_kpts, video2_kpts, dist='euclidean')
+    dist, cost, acc_cost, path = accelerated_dtw(video1_kpts, video2_kpts, dist='euclidean')
     aligned_video1 = [video1[i] for i in path[0]]
     aligned_video2 = [video2[j] for j in path[1]]
     return aligned_video1, aligned_video2, path
-
 
 def normalize_values(arr):
     arr = np.array(arr)
@@ -157,7 +197,6 @@ def normalize_values(arr):
     mask = arr >= 0.9  # Mask values that need normalization
     arr[mask] = (arr[mask] - 0.9) / 0.1  # Normalize 0.9-1.0 range to 0.0-1.0
     return arr
-
 
 def similarity_preprocesser(video_aligned):
     video_1_processed = []
@@ -168,7 +207,6 @@ def similarity_preprocesser(video_aligned):
                 curr.append(frame['angle'][key])
             video_1_processed.append(curr)
     return np.array(video_1_processed)
-
 
 def find_low_score_segments(scores, threshold=0.85, min_length=20, fps=20):
     segments = []
@@ -196,7 +234,7 @@ def find_low_score_segments(scores, threshold=0.85, min_length=20, fps=20):
 def new_save_video(video1_path, video2_path, scores, path):
     video1 = cv2.VideoCapture(video1_path)
     video2 = cv2.VideoCapture(video2_path)
-    output_filename = os.path.join("static/uploads", "output.mp4")
+    output_dir = os.path.join("/static/uploads", "frames/")
     frames = []
 
     for i in range(len(scores)):
@@ -219,52 +257,20 @@ def new_save_video(video1_path, video2_path, scores, path):
 
         combined_frame = cv2.cvtColor(combined_frame, cv2.COLOR_BGR2RGB)
         combined_frame = np.array(combined_frame)
+
+        from PIL import Image
+        output_filename = os.path.join("static/uploads/frames/", f"{i}_output.jpeg")
+        im = Image.fromarray(combined_frame)
+        im.save(output_filename)
         frames.append(combined_frame)
 
     clip = ImageSequenceClip(frames, fps=20)
-    clip.write_videofile(output_filename)
+    output_filename = os.path.join("static/uploads/", "output.mp4")
+    clip.write_videofile(output_filename, codec='libx264')
 
     video1.release()
     video2.release()
     cv2.destroyAllWindows()
-
-def save_overlay_video(video1_path, video2_path, scores, path):
-    video1 = cv2.VideoCapture(video1_path)
-    video2 = cv2.VideoCapture(video2_path)
-
-    frame_count = len(scores)
-    frame_width = int(video1.get(3))
-    frame_height = int(video1.get(4))
-    output_filename = os.path.join("static/uploads", "output.mp4")
-    fourcc = cv2.VideoWriter_fourcc(*'XVID')
-    fps = 20
-    out = cv2.VideoWriter(output_filename, fourcc, fps, (frame_width * 2, frame_height))
-
-    for i in range(frame_count):
-        score = scores[i]
-        video1.set(cv2.CAP_PROP_POS_FRAMES, path[0][i])
-        video2.set(cv2.CAP_PROP_POS_FRAMES, path[1][i])
-        ret1, frame1 = video1.read()
-        ret2, frame2 = video2.read()
-        if not ret1 or not ret2:
-            print("Error reading frame")
-            break
-
-        combined_frame = np.hstack((frame1, frame2))
-        if (score > 0.85):
-            cv2.putText(combined_frame, f"Score: {score:.2f}", (50, 50),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-        else:
-            cv2.putText(combined_frame, f"Score: {score:.2f}", (50, 50),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-
-        out.write(combined_frame)
-
-    video1.release()
-    video2.release()
-    out.release()
-    cv2.destroyAllWindows()
-
 
 def save_video_segments(video_path, low_score_segments, dtw_path, fps=20):
     cap = cv2.VideoCapture(video_path)
@@ -319,7 +325,6 @@ def save_video_segments(video_path, low_score_segments, dtw_path, fps=20):
 
     cap.release()
     cv2.destroyAllWindows()
-
 
 def process(videopath_1, videopath_2):
     kpts_vid1 = run(video_path=videopath_1)
